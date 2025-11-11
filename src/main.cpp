@@ -1,136 +1,64 @@
+#include <windows.h>
+#include <GL/freeglut.h>
 #include "Game.h"
-#include <iostream>
-#include <thread>
-#include <chrono>
-#include <termios.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <sys/select.h>
 
-// Improved non-blocking input functions
-struct TermiosSettings {
-    struct termios original;
-    
-    TermiosSettings() {
-        tcgetattr(STDIN_FILENO, &original);
-    }
-    
-    ~TermiosSettings() {
-        tcsetattr(STDIN_FILENO, TCSANOW, &original);
-    }
-};
+Game game;
 
-void SetNonBlockingInput(bool enable) {
-    static TermiosSettings settings;
-    static bool isSet = false;
-    
-    if (enable && !isSet) {
-        struct termios newt = settings.original;
-        newt.c_lflag &= ~(ICANON | ECHO);
-        tcsetattr(STDIN_FILENO, TCSANOW, &newt);
-        isSet = true;
-    } else if (!enable && isSet) {
-        tcsetattr(STDIN_FILENO, TCSANOW, &settings.original);
-        isSet = false;
-    }
+void display() {
+    glClear(GL_COLOR_BUFFER_BIT);
+    game.draw();
+    glutSwapBuffers();
 }
 
-bool KeyPressed() {
-    struct timeval tv = {0L, 0L};
-    fd_set fds;
-    FD_ZERO(&fds);
-    FD_SET(STDIN_FILENO, &fds);
-    return select(STDIN_FILENO + 1, &fds, NULL, NULL, &tv) > 0;
+void reshape(int w, int h) {
+    glViewport(0, 0, w, h);
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    gluOrtho2D(0, 800, 0, 600);
+    glMatrixMode(GL_MODELVIEW);
 }
 
-char GetKey() {
-    char ch = 0;
-    if (read(STDIN_FILENO, &ch, 1) != 1) {
-        return 0;
-    }
-    return ch;
+void keyboard(unsigned char key, int x, int y) {
+    game.handleInput(key, x, y);
+    glutPostRedisplay();
 }
 
-void ShowWelcomeScreen() {
-    std::cout << "\033[2J\033[1;1H";
-    std::cout << "========================================\n";
-    std::cout << "           WELCOME TO ARCANOID!        \n";
-    std::cout << "========================================\n";
-    std::cout << "                                        \n";
-    std::cout << "    Destroy all bricks with the ball!   \n";
-    std::cout << "                                        \n";
-    std::cout << "Controls:                               \n";
-    std::cout << "  A - Move paddle left                  \n";
-    std::cout << "  D - Move paddle right                 \n";
-    std::cout << "  SPACE - Launch ball                   \n";
-    std::cout << "  Q - Quit game                         \n";
-    std::cout << "                                        \n";
-    std::cout << "You have 3 lives ❤️ ❤️ ❤️              \n";
-    std::cout << "Press ENTER to start...                 \n";
-    std::cout << "========================================\n";
-    
-    // Wait for Enter key
-    SetNonBlockingInput(false);
-    std::cin.get();
-    SetNonBlockingInput(true);
+void specialKeys(int key, int x, int y) {
+    game.handleSpecialInput(key, x, y);
+    glutPostRedisplay();
 }
 
-void ShowGameOver(int score, bool won) {
-    SetNonBlockingInput(false);
-    std::cout << "\033[2J\033[1;1H";
-    std::cout << "========================================\n";
-    if (won) {
-        std::cout << "            YOU WIN! 🎉              \n";
-    } else {
-        std::cout << "            GAME OVER! 💀            \n";
-    }
-    std::cout << "========================================\n";
-    std::cout << "                                        \n";
-    std::cout << "        Final Score: " << score << "           \n";
-    std::cout << "                                        \n";
-    if (won) {
-        std::cout << "   You destroyed all bricks!         \n";
-    } else {
-        std::cout << "   Better luck next time!           \n";
-    }
-    std::cout << "                                        \n";
-    std::cout << "   Press ENTER to close...              \n";
-    std::cout << "========================================\n";
-    std::cin.get();
+void mouseMove(int x, int y) {
+    game.handleMouseMove(x, y);
+    glutPostRedisplay();
 }
 
-int main() {
-    const int WIDTH = 50;
-    const int HEIGHT = 25;
-    
-    ShowWelcomeScreen();
-    
-    Game game(WIDTH, HEIGHT);
-    SetNonBlockingInput(true);
-    
-    bool quit = false;
-    while (!game.IsGameOver() && !quit) {
-        game.Draw();
-        game.Update();
-        
-        // Check for input with better handling
-        while (KeyPressed()) {
-            char input = GetKey();
-            if (input == 'q' || input == 'Q') {
-                quit = true;
-                break;
-            }
-            game.ProcessInput(input);
-        }
-        
-        // Control game speed
-        std::this_thread::sleep_for(std::chrono::milliseconds(50));
-    }
-    
-    SetNonBlockingInput(false);
-    
-    // Show appropriate game over screen
-    ShowGameOver(game.GetScore(), game.IsGameWon());
-    
+void update(int value) {
+    game.update();
+    glutPostRedisplay();
+    glutTimerFunc(16, update, 0);
+}
+
+int main(int argc, char** argv) {
+    glutInit(&argc, argv);
+    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
+    glutInitWindowSize(800, 600);
+    glutInitWindowPosition(100, 100);
+    glutCreateWindow("Arcanoid with Transparency");
+
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    game.init();
+
+    glutDisplayFunc(display);
+    glutReshapeFunc(reshape);
+    glutKeyboardFunc(keyboard);
+    glutSpecialFunc(specialKeys);
+    glutPassiveMotionFunc(mouseMove);
+    glutTimerFunc(0, update, 0);
+
+    glutMainLoop();
     return 0;
 }

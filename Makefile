@@ -1,18 +1,16 @@
 CXX = g++
-CXXFLAGS = -std=c++11 -Iinclude
-SRCDIR = src
-SOURCES = $(SRCDIR)/main.cpp $(SRCDIR)/Game.cpp
-TARGET = arcanoid
-
-all: $(TARGET)
+CXXFLAGS = -std=c++11 -I./include -L./lib
+LIBS = -lfreeglut -lopengl32 -lglu32
+TARGET = arcanoid.exe
+SOURCES = src/main.cpp src/Game.cpp src/Ball.cpp src/Paddle.cpp src/Block.cpp src/Bomb.cpp
 
 $(TARGET): $(SOURCES)
-	$(CXX) $(CXXFLAGS) -o $(TARGET) $(SOURCES)
+	$(CXX) $(SOURCES) -o $(TARGET) $(CXXFLAGS) $(LIBS)
 
 clean:
-	rm -f $(TARGET)
+	del $(TARGET)
 
 run: $(TARGET)
-	./$(TARGET)
+	.\$(TARGET)
 
-.PHONY: all clean run
+.PHONY: clean run
